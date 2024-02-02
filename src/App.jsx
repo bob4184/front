@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo } from 'react'
 import Phonenumber from "./components/Phonenumber";
 import axios from 'axios'
 import debounce from 'lodash/debounce';
-const baseUrl = 'http://localhost:3001/api/notes'
 
 const SuccessMessage = (props) => {
   if (!props.value) {
@@ -60,6 +59,7 @@ const Course = (props) => {
 )};
 
 const NotesComponent = (props) => {
+  const baseUrl = "/api/notes"
   const [notes, setNotes] = useState(null)
   const [showAll, setShowAll] = useState(true)
   const [newNote, setNewNote] = useState('a new note...')
