@@ -4,6 +4,7 @@ import Phonenumber from "./components/Phonenumber";
 import axios from 'axios'
 import debounce from 'lodash/debounce';
 
+
 const SuccessMessage = (props) => {
   if (!props.value) {
     return null
@@ -59,13 +60,12 @@ const Course = (props) => {
 )};
 
 const NotesComponent = (props) => {
-  const baseUrl = "/api/notes"
   const [notes, setNotes] = useState(null)
   const [showAll, setShowAll] = useState(true)
   const [newNote, setNewNote] = useState('a new note...')
   useEffect(() => {
     axios
-      .get('http://localhost:3001/notes')
+      .get('/api/notes')
       .then(response => {
         setNotes(response.data)
       })
@@ -84,9 +84,9 @@ const NotesComponent = (props) => {
     }
   
     axios
-    .post('http://localhost:3001/notes', noteObject)
+    .post('/api/notes', noteObject)
     .then(response => {
-      setNotes(notes.concat(response.data))
+      setNotes(notes.concat({content: response.data.content, important: response.data.important, _id:response.data._id}))
       setNewNote('')
     })
   }
@@ -105,7 +105,7 @@ const NotesComponent = (props) => {
       </div>
       <ul>
       {notesToShow.map(note =>
-          <Note key={note.id} note={note}/>,
+          <Note key={note._id} note={note}/>,
         )}
       </ul>
       <form onSubmit={addNote}>
@@ -129,7 +129,7 @@ const PhonebookComponent = (props) => {
   const [filteredList, setFilteredList] = useState([]);
   useEffect(() => {
     axios
-      .get('http://localhost:3001/persons')
+      .get('/api/persons')
       .then(response => {
         setPhonebook(response.data)
         setSuccess(true)
@@ -161,25 +161,25 @@ const PhonebookComponent = (props) => {
     } else if (phonebook.some((contact) => contact.name === newName)) {
       if (window.confirm('Name already in the system, should we change the number')) {
         const contactToUpdate = phonebook.find((contact) => contact.name === newName)
-        axios.patch(`http://localhost:3001/persons/${contactToUpdate.id}`, {phone:newPhone})
+        axios.patch(`/api/persons/${contactToUpdate._id}`, {number:newPhone})
         .then(res => {
-          let newList = phonebook.map(el => el.name===newName ? {...el, phone:newPhone} : el)
+          let newList = phonebook.map(el => el.name===newName ? {...el, number:newPhone} : el)
           setPhonebook(newList)
         })
       }
     } else {
       const phonebookObject = {
         name: newName,
-        phone: newPhone,
+        number: newPhone,
       };
-      axios.post('http://localhost:3001/persons', phonebookObject).then(res => {setPhonebook(phonebook.concat(phonebookObject));})
+      axios.post('/api/persons/add', phonebookObject).then(res => {setPhonebook(phonebook.concat(phonebookObject));})
     }
     setNewName('');
     setNewPhone('');
   };
 
   const handleDelete = (event) => {
-    axios.delete(`http://localhost:3001/persons/${event.target.value}`)
+    axios.delete(`/api/persons/${event.target.value}`)
     .then(res => {setPhonebook(phonebook.filter( phone => phone.id !== event.target.value))})
     .catch(error => {setError(event.target.value)})
   }
@@ -204,11 +204,13 @@ const PhonebookComponent = (props) => {
       <h2>Numbers</h2>
       <ul>
         {namesToShow.map((phonebookObject) => (
-          <li key={phonebookObject.phone}>
-            {phonebookObject.name}: {phonebookObject.phone}
-            <button value={phonebookObject.id} onClick={handleDelete}>delete</button>
-            <ErrorMessage value={error}/>
-          </li>
+          phonebookObject !== null ? (
+            <li key={phonebookObject.number}>
+              {phonebookObject.name}: {phonebookObject.number}
+              <button value={phonebookObject.id} onClick={handleDelete}>delete</button>
+              <ErrorMessage value={error}/>
+            </li>
+          ) : null
         ))}
       </ul>
       <h3>Filter</h3>

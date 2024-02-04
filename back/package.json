@@ -7,14 +7,19 @@
   "scripts": {
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "rebuild:ui": "@powershell Remove-Item -Recurse -Force dist && cd .. && @powershell Remove-Item -Recurse -Force dist && npm run build && @powershell Copy-Item dist -Recurse ./back",
+    "create:ui": "cd .. && npm run build && @powershell Copy-Item dist -Recurse ./back",
+    "delete:ui": "@powershell Remove-Item -Recurse -Force dist && cd .. && @powershell Remove-Item -Recurse -Force dist"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
     "express": "^4.18.2",
+    "mongoose": "^8.1.1",
     "morgan": "^1.10.0"
   },
   "devDependencies": {

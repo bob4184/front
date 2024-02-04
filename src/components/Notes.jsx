@@ -2,11 +2,9 @@ import axios from 'axios'
 
 
 const Note = ({ note }) => {
-  const changedNote = { important: !note.important }
   const handleCheck = () => {
     axios
-    .patch(`http://localhost:3001/notes/${note.id}`, changedNote)
-    
+    .patch(`/api/notes/${note._id}`)
   }
   return (
     <div>

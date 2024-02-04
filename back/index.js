@@ -2,6 +2,8 @@ import express from "express"
 import bodyParser from "body-parser"
 import morgan from "morgan"
 import cors from "cors"
+import db from './db/main_db.js'
+import 'dotenv/config'
 
 
 const app = express()
@@ -12,95 +14,82 @@ app.use(cors())
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('dist'))
 
-let persons = [
-    { 
-      id: 1,
-      name: "Arto Hellas", 
-      number: "040-123456"
-    },
-    { 
-      id: 2,
-      name: "Ada Lovelace", 
-      number: "39-44-5323523"
-    },
-    { 
-      id: 3,
-      name: "Dan Abramov", 
-      number: "12-43-234345"
-    },
-    { 
-      id: 4,
-      name: "Mary Poppendieck", 
-      number: "39-23-6423122"
-    }
-]
-
-let notes = [
-  {
-    id: 1,
-    content: "HTML is easy",
-    important: true
-  },
-  {
-    id: 2,
-    content: "Browser can execute only JavaScript",
-    important: false
-  },
-  {
-    id: 3,
-    content: "GET and POST are the most important methods of HTTP protocol",
-    important: true
-  }
-]
-
 const generateId = () => {
     const maxId = notes.length > 0
       ? Math.max(...notes.map(n => n.id))
       : 0
     return maxId + 1
+}
+
+const errorHandler = (error, request, response, next) => {
+  console.log(error.name)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
   }
+
+  next(error)
+}
+
+app.use(errorHandler)
 
 app.get('/', (request, response) => {
     response.send('<h1>Hello World!</h1>')
   })
 
   app.get('/api/persons', (req, res) => {
-    res.send(persons)
+    db.Person.find({}).then(notes => {
+      res.send(notes)
+    })
+    .catch(error => {
+      console.log(error)
+      response.status(500).end()
+    })
   })
 
-  app.get('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id)
-    const person = persons.find(person => person.id === id)
-    if (person) {
+  app.get('/api/persons/:id', (req, res, next) => {
+    const id = req.params.id
+    db.Person.findById(id).then(person => {
+      if (person) {
         res.json(person)
       } else {
         res.status(404).end()
       }
+    })
+    .catch(error => {
+      next(error)
+    })
+  })
+
+  app.patch('/api/persons/:id', (req, res) => {
+    const phone = req.body.phone
+    db.Person.findByIdAndUpdate(req.params.id, {number: req.body.number})
+    .then(done => {res.send(done)})
+    .catch(error => {
+      console.log(error)
+      res.status(500).end()
+    })
   })
 
   app.delete('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id)
-    delete persons[id-1]
-    res.status(200).end()
+    const id = req.params.id
+    db.Person.deleteOne({_id: id}).then(el => {
+      res.status(200)
+    })
   })
 
-  app.post('/api/persons/add', (req, res) => {
+  app.post('/api/persons/add', async (req, res) => {
     if (req.body.name < 2) {
       res.send("Name is too short")
-      throw TooShortError
+      return
     }
-    for (let i of persons) {
-      if (i.name == req.body.name) {
-        res.send("Name already exists")
-        throw AlreadyExistError
-      }
+    if (db.Person.find({name: req.body.name})) {
+      res.send("Name already exists")
+      return
     }
-    const PersonsObject = {
-      name: req.body.name,
-      number: req.body.number
-    }
-    persons.push(PersonsObject)
-    res.status(200).end()
+    res.send(await db.addPerson({name: req.body.name, number: req.body.number}))
   })
 
   app.get('/info', (req, res) => {
@@ -108,44 +97,61 @@ app.get('/', (request, response) => {
   })
   
   app.get('/api/notes', (request, response) => {
-    response.json(notes)
+    db.Note.find({}).then(notes => {
+      response.json(notes)
+    })
+    .catch(error => {
+      console.log(error)
+      response.status(500).end()
+    })
   })
 
   app.get('/api/notes/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const note = notes.find(note => note.id === id)
-    if (note) {
+    const id = request.params.id
+    db.Note.findById(request.params.id).then(note => {
+      if (note) {
         response.json(note)
       } else {
         response.status(404).end()
       }
+    })
+    .catch(error => {
+      console.log(error)
+      response.status(500).end()
+    })
   })
 
-  app.delete('/api/notes/:id', (request, response) => {
-    const id = Number(request.params.id)
-    notes = notes.filter(note => note.id !== id)
-  
-    response.status(204).end()
+  app.patch('/api/notes/:id', (req, res) => {
+    const id = req.params.id
+    db.Note.findById(id).then(note => {
+      db.Note.updateOne({_id: id}, {$set: { important: !note.important }}).then(el => res.status(200))
+    })
+    .catch(error => {
+      console.log(error)
+      response.status(500).end()
+    })
+  })
+
+  app.delete('/api/notes/:id', (req, res) => {
+    const id = req.params.id
+    db.Note.deleteOne({_id: id}).then(el => {
+      res.status(200)
+    })
+    .catch(error => {
+      console.log(error)
+      response.status(500).end()
+    })
   })
   
-  app.post('/api/notes', (request, response) => {
+  app.post('/api/notes', async (request, response) => {
     const body = request.body
-  
     if (!body.content) {
       return response.status(400).json({ 
         error: 'content missing' 
       })
     }
-  
-    const note = {
-      content: body.content,
-      important: Boolean(body.important) || false,
-      id: generateId(),
-    }
-  
-    notes = notes.concat(note)
-  
-    response.json(note)
+    const op = await db.addContent({data:body.content, important:body.important})
+    response.send(op)
   })
   
   const PORT = process.env.PORT || 3001
